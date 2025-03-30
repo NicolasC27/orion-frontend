@@ -215,7 +215,7 @@ const TicketDetailPage = () => {
 
   return (
       <TooltipProvider>
-        <div className="flex-1 ml-64 transition-all duration-300">
+        <div className="flex-1 transition-all duration-300">
 
           <header
               className="sticky top-0 z-10 backdrop-blur-md bg-white/70 dark:bg-gray-900/70 border-b border-gray-200 dark:border-gray-800">

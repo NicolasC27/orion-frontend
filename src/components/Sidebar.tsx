@@ -1,232 +1,513 @@
-'use client'
+"use client"
 
-import React, { useState, useMemo, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import * as React from "react"
+import { motion, AnimatePresence, HTMLMotionProps } from "framer-motion"
+import { cva, type VariantProps } from "class-variance-authority"
+import {
+  ChevronRight,
+  Home,
+  Settings,
+  User,
+  Menu as MenuIcon,
+  Search,
+  Bell,
+  MessageSquare,
+  BarChart3,
+  Folder,
+  LogOut,
+  ChevronDown,
+  PanelLeft,
+  Ticket,
+  Sun,
+  Moon,
+} from "lucide-react"
+
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { useTheme } from "next-themes"
+import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { HomeIcon, TicketIcon, FolderIcon, BarChartIcon, SettingsIcon, LogOutIcon, ChevronDownIcon, ChevronRightIcon, SearchIcon, SunIcon, MoonIcon, MenuIcon, ChevronLeftIcon, BellIcon } from "lucide-react"
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useTheme } from "next-themes"
 
-const texts = {
-  appName: "TicketDashboard",
-  appType: "DOCS",
-  search: "Rechercher...",
-  logout: "Déconnexion",
-  notifications: "Notifications",
-  settings: "Paramètres",
-}
+// Custom hook for mobile detection
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
-const menuItems = [
-  { icon: HomeIcon, label: "Accueil" },
-  { 
-    icon: TicketIcon, 
-    label: "Tickets", 
-    subItems: ["Tous les tickets", "Mes tickets", "Tickets archivés"],
-    badge: 3
-  },
-  { 
-    icon: FolderIcon, 
-    label: "Projets",
-    subItems: ["Actifs", "Terminés", "En attente"]
-  },
-  { icon: BarChartIcon, label: "Rapports" },
-]
-
-export function Sidebar() {
-  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeItem, setActiveItem] = useState("Accueil")
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const { theme, setTheme } = useTheme()
-  const [unreadNotifications, setUnreadNotifications] = useState(3)
-
-  const toggleSubMenu = useCallback((label: string) => {
-    if (!isCollapsed) {
-      setOpenSubMenu(openSubMenu === label ? null : label)
+  React.useEffect(() => {
+    const MOBILE_BREAKPOINT = 768
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const onChange = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
-  }, [isCollapsed, openSubMenu])
-
-  const toggleCollapse = useCallback(() => {
-    setIsCollapsed(prev => !prev)
-    setOpenSubMenu(null)
+    mql.addEventListener("change", onChange)
+    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  const memoizedMenuItems = useMemo(() => menuItems, [])
+  return !!isMobile
+}
 
-  // @ts-ignore
+// Context for sidebar state management
+type SidebarContextType = {
+  expanded: boolean
+  setExpanded: (expanded: boolean) => void
+  toggleSidebar: () => void
+  isMobile: boolean
+  mobileOpen: boolean
+  setMobileOpen: (open: boolean) => void
+}
+
+const SidebarContext = React.createContext<SidebarContextType | null>(null)
+
+function useSidebarContext() {
+  const context = React.useContext(SidebarContext)
+  if (!context) {
+    throw new Error("useSidebarContext must be used within a SidebarProvider")
+  }
+  return context
+}
+
+interface SidebarProviderProps {
+  children: React.ReactNode
+  defaultExpanded?: boolean
+}
+
+const SidebarProvider = ({ children, defaultExpanded = true }: SidebarProviderProps) => {
+  const [expanded, setExpanded] = React.useState(defaultExpanded)
+  const [mobileOpen, setMobileOpen] = React.useState(false)
+  const isMobile = useIsMobile()
+
+  const toggleSidebar = React.useCallback(() => {
+    if (isMobile) {
+      setMobileOpen(prev => !prev)
+    } else {
+      setExpanded(prev => !prev)
+    }
+  }, [isMobile])
+
+  // Keyboard shortcut to toggle sidebar
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "b" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        toggleSidebar()
+      }
+    }
+    
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [toggleSidebar])
+
   return (
-    <TooltipProvider>
-      <motion.div
-          className="h-screen fixed left-0 top-0 bg-background text-foreground overflow-hidden shadow-lg flex flex-col w-64"
-          animate={{width: isCollapsed ? 80 : 256}}
-          transition={{duration: 0.3}}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          {!isCollapsed && (
+    <SidebarContext.Provider 
+      value={{ 
+        expanded, 
+        setExpanded, 
+        toggleSidebar, 
+        isMobile, 
+        mobileOpen, 
+        setMobileOpen 
+      }}
+    >
+      {children}
+    </SidebarContext.Provider>
+  )
+}
+
+// Sidebar components
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  children: React.ReactNode
+}
+
+interface MotionAsideProps extends HTMLMotionProps<"aside"> {
+  children: React.ReactNode
+  className?: string
+}
+
+const SidebarComponent = ({ children, className, ...props }: SidebarProps) => {
+  const { expanded, isMobile, mobileOpen, setMobileOpen } = useSidebarContext()
+  
+  if (isMobile) {
+    return (
+      <>
+        {mobileOpen && (
+          <div 
+            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.aside
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className={cn(
+                "fixed inset-y-0 left-0 z-50 w-72 border-r border-border bg-sidebar text-sidebar-foreground shadow-xl",
+                className
+              )}
+              {...(props as MotionAsideProps)}
+            >
+              <div className="flex h-full flex-col">
+                {children}
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+      </>
+    )
+  }
+  
+  return (
+    <aside
+      className={cn(
+        "relative h-screen border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
+        expanded ? "w-64" : "w-16",
+        className
+      )}
+      {...props}
+    >
+      <div className="flex h-full flex-col">
+        {children}
+      </div>
+    </aside>
+  )
+}
+
+interface SidebarHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
+  children?: React.ReactNode
+}
+
+const SidebarHeader = ({ children, className, ...props }: SidebarHeaderProps) => {
+  const { expanded, toggleSidebar } = useSidebarContext()
+  
+  return (
+    <div
+      className={cn(
+        "flex h-16 items-center gap-2 border-b border-border px-4",
+        className
+      )}
+      {...props}
+    >
+      {children || (
+        <>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleSidebar}
+            className="h-8 w-8"
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+          
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-1 items-center justify-between"
+            >
               <div className="flex items-center space-x-2">
                 <div className="bg-blue-600 text-white p-1 rounded">
-                  <TicketIcon className="h-6 w-6"/>
+                  <Ticket className="h-6 w-6"/>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Ticket<span
-                      className="font-normal">Dashboard</span></h2>
-                  <span
-                      className="text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">DOCS</span>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                    Ticket<span className="font-normal">Dashboard</span>
+                  </h2>
+                  <span className="text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">
+                    DOCS
+                  </span>
                 </div>
               </div>
+            </motion.div>
           )}
-          <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleCollapse}
-              className="p-0 h-8 w-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-          >
-            {isCollapsed ? <ChevronRightIcon className="h-5 w-5"/> : <ChevronLeftIcon className="h-5 w-5"/>}
-          </Button>
+        </>
+      )}
+    </div>
+  )
+}
+
+interface SidebarSearchProps extends React.ComponentProps<typeof Input> {}
+
+const SidebarSearch = ({ className, ...props }: SidebarSearchProps) => {
+  const { expanded } = useSidebarContext()
+  
+  return expanded ? (
+    <div className="px-4 py-2">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher..."
+          className={cn("h-9 pl-9", className)}
+          {...props}
+        />
+      </div>
+    </div>
+  ) : (
+    <div className="px-3 py-2">
+      <Button variant="ghost" size="icon" className="h-9 w-9">
+        <Search className="h-4 w-4" />
+      </Button>
+    </div>
+  )
+}
+
+interface SidebarSectionProps extends React.HTMLAttributes<HTMLDivElement> {
+  title?: string
+  children: React.ReactNode
+}
+
+const SidebarSection = ({ title, children, className, ...props }: SidebarSectionProps) => {
+  const { expanded } = useSidebarContext()
+  
+  return (
+    <div className={cn("py-2", className)} {...props}>
+      {title && expanded && (
+        <div className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {title}
         </div>
-        <ScrollArea className="h-[calc(100%-144px)]">
-          <div className="p-4">
-            {!isCollapsed && (
-                <div className="relative mb-6">
-                  <SearchIcon
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 h-4 w-4"/>
-                  <Input
-                      type="text"
-                      placeholder="Rechercher..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 w-full bg-gray-100 dark:bg-gray-700 focus:bg-white dark:focus:bg-gray-600 focus:ring-2 focus:ring-blue-500 transition-all duration-300"
-                  />
-                </div>
-            )}
-            <nav>
-              <ul className="space-y-2">
-                {menuItems.map((item, index) => (
-                    <li key={item.label}>
-                      <motion.div
-                          initial={{opacity: 0, x: -20}}
-                          animate={{opacity: 1, x: 0}}
-                          transition={{delay: index * 0.1}}
-                      >
-                        <Button
-                            variant="ghost"
-                            className={`w-full justify-between text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors ${
-                                activeItem === item.label ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : ''
-                            } ${isCollapsed ? 'px-0 justify-center' : ''}`}
-                            onClick={() => {
-                              setActiveItem(item.label)
-                              toggleSubMenu(item.label)
-                            }}
-                        >
-                          <span className={`flex items-center ${isCollapsed ? 'justify-center' : ''}`}>
-                            <item.icon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`}/>
-                            {!isCollapsed && item.label}
-                          </span>
-                          {!isCollapsed && (
-                              <div className="flex items-center">
-                                {item.badge && (
-                                    <Badge variant="secondary" className="mr-2">
-                                      {item.badge}
-                                    </Badge>
-                                )}
-                                {item.subItems && (
-                                    openSubMenu === item.label ? <ChevronDownIcon className="h-4 w-4"/> :
-                                        <ChevronRightIcon className="h-4 w-4"/>
-                                )}
-                              </div>
-                          )}
-                        </Button>
-                        <AnimatePresence>
-                          {!isCollapsed && item.subItems && openSubMenu === item.label && (
-                              <motion.ul
-                                  initial={{opacity: 0, height: 0}}
-                                  animate={{opacity: 1, height: "auto"}}
-                                  exit={{opacity: 0, height: 0}}
-                                  className="ml-6 mt-2 space-y-2"
-                              >
-                                {item.subItems.map((subItem, subIndex) => (
-                                    <motion.li
-                                        key={subItem}
-                                        initial={{opacity: 0, x: -20}}
-                                        animate={{opacity: 1, x: 0}}
-                                        transition={{delay: subIndex * 0.1}}
-                                    >
-                                      <Button
-                                          variant="ghost"
-                                          className={`w-full justify-start text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/50 transition-colors ${
-                                              activeItem === subItem ? 'bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400' : ''
-                                          }`}
-                                          onClick={() => setActiveItem(subItem)}
-                                      >
-                                        {subItem}
-                                      </Button>
-                                    </motion.li>
-                                ))}
-                              </motion.ul>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    </li>
-                ))}
-              </ul>
-            </nav>
-          </div>
-        </ScrollArea>
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
-          {!isCollapsed && (
-              <div className="flex items-center space-x-4 mb-4">
-                <Avatar>
-                  <AvatarImage src="/avatars/01.png" alt="John Doe"/>
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-medium">John Doe</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">john.doe@example.com</p>
-                </div>
-              </div>
-          )}
-          <div className={`flex items-center ${isCollapsed ? 'flex-col space-y-4' : 'justify-between'}`}>
-            <Button
-                variant="ghost"
-                size="sm"
-                className={`text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ${
-                    isCollapsed ? 'w-10 h-10 p-0' : 'justify-start'
-                }`}
+      )}
+      {children}
+    </div>
+  )
+}
+
+interface SidebarItemProps extends React.HTMLAttributes<HTMLDivElement> {
+  icon: React.ElementType
+  title: string
+  active?: boolean
+  badge?: string | number
+  subItems?: Array<{ title: string; href: string }>
+}
+
+const sidebarItemVariants = cva(
+  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 transition-colors",
+  {
+    variants: {
+      variant: {
+        default: "hover:bg-accent/50 hover:text-accent-foreground",
+        active: "bg-accent text-accent-foreground font-medium",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
+
+const SidebarItem = ({ 
+  icon: Icon, 
+  title, 
+  active, 
+  badge, 
+  subItems,
+  className, 
+  ...props 
+}: SidebarItemProps) => {
+  const { expanded } = useSidebarContext()
+  const [open, setOpen] = React.useState(false)
+  
+  return (
+    <div className="px-2">
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className={cn(
+                sidebarItemVariants({ variant: active ? "active" : "default" }),
+                className
+              )}
+              onClick={() => subItems && expanded && setOpen(!open)}
+              {...props}
             >
-              <LogOutIcon className={`h-5 w-5 ${isCollapsed ? '' : 'mr-3'}`}/>
-              {!isCollapsed && "Déconnexion"}
-            </Button>
-            {!isCollapsed ? (
-                <Switch
-                    checked={theme === "dark"}
-                    onCheckedChange={() => setTheme(theme === "dark" ? "light" : "dark")} className="ml-2"
+              <Icon className="h-5 w-5" />
+              
+              {expanded && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-1 items-center justify-between"
                 >
-                  <SunIcon className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"/>
-                  <MoonIcon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"/>
-                </Switch>
-            ) : (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                    className="w-10 h-10 p-0"
-                >
-                  {theme === "dark" ? (
-                      <SunIcon className="h-5 w-5"/>
-                  ) : (
-                      <MoonIcon className="h-5 w-5"/>
+                  <span>{title}</span>
+                  
+                  {badge && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                      {badge}
+                    </span>
                   )}
-                </Button>
+                  
+                  {subItems && (
+                    <ChevronDown 
+                      className={cn(
+                        "h-4 w-4 transition-transform", 
+                        open && "rotate-180"
+                      )} 
+                    />
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </TooltipTrigger>
+          
+          {!expanded && (
+            <TooltipContent side="right" className="flex items-center gap-2">
+              {title}
+              {badge && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                  {badge}
+                </span>
+              )}
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+      
+      {expanded && subItems && open && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="ml-8 mt-1 flex flex-col gap-1 overflow-hidden border-l border-border pl-2"
+        >
+          {subItems.map((item, i) => (
+            <a
+              key={i}
+              href={item.href}
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/50 hover:text-accent-foreground"
+            >
+              {item.title}
+            </a>
+          ))}
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
+interface SidebarFooterProps extends React.HTMLAttributes<HTMLDivElement> {
+  children?: React.ReactNode
+}
+
+const SidebarFooter = ({ children, className, ...props }: SidebarFooterProps) => {
+  return (
+    <div
+      className={cn(
+        "mt-auto border-t border-border p-4",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  )
+}
+
+// User dropdown component for the sidebar footer
+const UserDropdown = () => {
+  const { expanded } = useSidebarContext()
+  const { theme, setTheme } = useTheme()
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <div className={cn(
+          "flex cursor-pointer items-center gap-2 rounded-md p-2 hover:bg-accent/50",
+          expanded ? "justify-between" : "justify-center"
+        )}>
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <User className="h-4 w-4" />
+            </div>
+            
+            {expanded && (
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">John Doe</span>
+                <span className="text-xs text-muted-foreground">john.doe@example.com</span>
+              </div>
             )}
           </div>
+          
+          {expanded && <ChevronRight className="h-4 w-4" />}
         </div>
-      </motion.div>
-    </TooltipProvider>
+      </DropdownMenuTrigger>
+      
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem>
+          <User className="mr-2 h-4 w-4" />
+          <span>Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Settings</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+          {theme === "dark" ? (
+            <>
+              <Sun className="mr-2 h-4 w-4" />
+              <span>Light Mode</span>
+            </>
+          ) : (
+            <>
+              <Moon className="mr-2 h-4 w-4" />
+              <span>Dark Mode</span>
+            </>
+          )}
+        </DropdownMenuItem>
+        <Separator className="my-1" />
+        <DropdownMenuItem className="text-destructive focus:text-destructive">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Déconnexion</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+export function Sidebar() {
+  return (
+    <SidebarProvider defaultExpanded={true}>
+      <SidebarComponent>
+        <SidebarHeader />
+        <SidebarSearch />
+        
+        <div className="flex-1 overflow-auto">
+          <SidebarSection>
+            <SidebarItem icon={Home} title="Accueil" active />
+            <SidebarItem 
+              icon={Ticket} 
+              title="Tickets" 
+              badge={3}
+              subItems={[
+                { title: "Tous les tickets", href: "#" },
+                { title: "Mes tickets", href: "#" },
+                { title: "Tickets archivés", href: "#" },
+              ]}
+            />
+            <SidebarItem 
+              icon={Folder} 
+              title="Projets"
+              subItems={[
+                { title: "Actifs", href: "#" },
+                { title: "Terminés", href: "#" },
+                { title: "En attente", href: "#" },
+              ]}
+            />
+            <SidebarItem icon={BarChart3} title="Rapports" />
+          </SidebarSection>
+        </div>
+        
+        <SidebarFooter>
+          <UserDropdown />
+        </SidebarFooter>
+      </SidebarComponent>
+    </SidebarProvider>
   )
 }

@@ -5,6 +5,7 @@ import {Sidebar} from '@/components/Sidebar'
 import React from "react";
 import TicketDetailPage from "@/components/ticket-detail-page";
 import {TicketListPage} from "@/components/ticket-list-page";
+import Component from '@/components/Demo';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -23,7 +24,7 @@ export default function RootLayout({
         <body className={inter.className}>
         <div className="flex h-screen bg-white dark:bg-gray-900">
             <Sidebar/>
-            <TicketListPage/>
+            <Component/>
         </div>
         </body>
         </html>
