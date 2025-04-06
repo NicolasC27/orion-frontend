@@ -63,9 +63,9 @@ type SidebarContextType = {
   setMobileOpen: (open: boolean) => void
 }
 
-const SidebarContext = React.createContext<SidebarContextType | null>(null)
+export const SidebarContext = React.createContext<SidebarContextType | null>(null)
 
-function useSidebarContext() {
+export function useSidebarContext() {
   const context = React.useContext(SidebarContext)
   if (!context) {
     throw new Error("useSidebarContext must be used within a SidebarProvider")
@@ -78,7 +78,7 @@ interface SidebarProviderProps {
   defaultExpanded?: boolean
 }
 
-const SidebarProvider = ({ children, defaultExpanded = true }: SidebarProviderProps) => {
+export const SidebarProvider = ({ children, defaultExpanded = true }: SidebarProviderProps) => {
   const [expanded, setExpanded] = React.useState(defaultExpanded)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const isMobile = useIsMobile()
@@ -138,7 +138,7 @@ const SidebarComponent = ({ children, className, ...props }: SidebarProps) => {
       <>
         {mobileOpen && (
           <div 
-            className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[49] bg-background/60 backdrop-blur-sm transition-all duration-300"
             onClick={() => setMobileOpen(false)}
           />
         )}
@@ -148,9 +148,9 @@ const SidebarComponent = ({ children, className, ...props }: SidebarProps) => {
               initial={{ x: -300, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -300, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className={cn(
-                "fixed inset-y-0 left-0 z-50 w-72 border-r border-border bg-sidebar text-sidebar-foreground shadow-xl",
+                "fixed inset-y-0 left-0 z-[60] w-72 bg-white dark:bg-gray-950 border-r border-border/40 shadow-xl",
                 className
               )}
               {...(props as MotionAsideProps)}
@@ -168,7 +168,7 @@ const SidebarComponent = ({ children, className, ...props }: SidebarProps) => {
   return (
     <aside
       className={cn(
-        "relative h-screen border-r border-border bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out",
+        "fixed inset-y-0 left-0 z-[40] h-screen bg-white dark:bg-gray-950 border-r border-border/40 transition-all duration-300 ease-in-out",
         expanded ? "w-64" : "w-16",
         className
       )}
@@ -191,7 +191,7 @@ const SidebarHeader = ({ children, className, ...props }: SidebarHeaderProps) =>
   return (
     <div
       className={cn(
-        "flex h-16 items-center gap-2 border-b border-border px-4",
+        "flex h-16 items-center gap-2 border-b border-border/40 px-4 backdrop-blur-sm",
         className
       )}
       {...props}
@@ -202,7 +202,7 @@ const SidebarHeader = ({ children, className, ...props }: SidebarHeaderProps) =>
             variant="ghost" 
             size="icon" 
             onClick={toggleSidebar}
-            className="h-8 w-8"
+            className="h-8 w-8 rounded-full hover:bg-accent/30 transition-all duration-200"
           >
             <PanelLeft className="h-5 w-5" />
           </Button>
@@ -215,14 +215,14 @@ const SidebarHeader = ({ children, className, ...props }: SidebarHeaderProps) =>
               className="flex flex-1 items-center justify-between"
             >
               <div className="flex items-center space-x-2">
-                <div className="bg-blue-600 text-white p-1 rounded">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-1 rounded-md shadow-md">
                   <Ticket className="h-6 w-6"/>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  <h2 className="text-xl font-bold text-foreground">
                     Ticket<span className="font-normal">Dashboard</span>
                   </h2>
-                  <span className="text-xs uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">
+                  <span className="text-xs uppercase tracking-wider text-blue-500 dark:text-blue-400 font-semibold">
                     DOCS
                   </span>
                 </div>
@@ -246,14 +246,21 @@ const SidebarSearch = ({ className, ...props }: SidebarSearchProps) => {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Rechercher..."
-          className={cn("h-9 pl-9", className)}
+          className={cn(
+            "h-9 pl-9 bg-accent/20 border-border/50 focus-visible:ring-accent/30 transition-all duration-200",
+            className
+          )}
           {...props}
         />
       </div>
     </div>
   ) : (
     <div className="px-3 py-2">
-      <Button variant="ghost" size="icon" className="h-9 w-9">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="h-9 w-9 rounded-full hover:bg-accent/30 transition-all duration-200"
+      >
         <Search className="h-4 w-4" />
       </Button>
     </div>
@@ -289,12 +296,12 @@ interface SidebarItemProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const sidebarItemVariants = cva(
-  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 transition-colors",
+  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 transition-all duration-200",
   {
     variants: {
       variant: {
-        default: "hover:bg-accent/50 hover:text-accent-foreground",
-        active: "bg-accent text-accent-foreground font-medium",
+        default: "hover:bg-accent/20 hover:text-accent-foreground",
+        active: "bg-gradient-to-r from-accent/30 to-accent/10 text-accent-foreground font-medium shadow-sm",
       },
     },
     defaultVariants: {
@@ -328,7 +335,10 @@ const SidebarItem = ({
               onClick={() => subItems && expanded && setOpen(!open)}
               {...props}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className={cn(
+                "h-5 w-5 transition-transform", 
+                active && "text-primary"
+              )} />
               
               {expanded && (
                 <motion.div 
@@ -339,7 +349,7 @@ const SidebarItem = ({
                   <span>{title}</span>
                   
                   {badge && (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-primary to-primary/80 px-1.5 text-xs font-medium text-primary-foreground shadow-sm">
                       {badge}
                     </span>
                   )}
@@ -347,7 +357,7 @@ const SidebarItem = ({
                   {subItems && (
                     <ChevronDown 
                       className={cn(
-                        "h-4 w-4 transition-transform", 
+                        "h-4 w-4 transition-transform duration-200", 
                         open && "rotate-180"
                       )} 
                     />
@@ -358,10 +368,13 @@ const SidebarItem = ({
           </TooltipTrigger>
           
           {!expanded && (
-            <TooltipContent side="right" className="flex items-center gap-2">
+            <TooltipContent 
+              side="right" 
+              className="flex items-center gap-2 bg-popover/90 backdrop-blur-sm border-border/40"
+            >
               {title}
               {badge && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-r from-primary to-primary/80 px-1.5 text-xs font-medium text-primary-foreground">
                   {badge}
                 </span>
               )}
@@ -370,23 +383,28 @@ const SidebarItem = ({
         </Tooltip>
       </TooltipProvider>
       
-      {expanded && subItems && open && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="ml-8 mt-1 flex flex-col gap-1 overflow-hidden border-l border-border pl-2"
-        >
-          {subItems.map((item, i) => (
-            <a
-              key={i}
-              href={item.href}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/50 hover:text-accent-foreground"
+      {expanded && subItems && (
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="ml-8 mt-1 flex flex-col gap-1 overflow-hidden border-l border-border/40 pl-2"
             >
-              {item.title}
-            </a>
-          ))}
-        </motion.div>
+              {subItems.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.href}
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/20 hover:text-accent-foreground transition-all duration-200"
+                >
+                  {item.title}
+                </a>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
     </div>
   )
@@ -400,7 +418,7 @@ const SidebarFooter = ({ children, className, ...props }: SidebarFooterProps) =>
   return (
     <div
       className={cn(
-        "mt-auto border-t border-border p-4",
+        "mt-auto border-t border-border/40 p-4 backdrop-blur-sm",
         className
       )}
       {...props}
@@ -419,11 +437,11 @@ const UserDropdown = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <div className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-md p-2 hover:bg-accent/50",
+          "flex cursor-pointer items-center gap-2 rounded-md p-2 hover:bg-accent/20 transition-all duration-200",
           expanded ? "justify-between" : "justify-center"
         )}>
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm">
               <User className="h-4 w-4" />
             </div>
             
@@ -439,7 +457,10 @@ const UserDropdown = () => {
         </div>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent 
+        align="end" 
+        className="w-56 bg-popover/90 backdrop-blur-sm border-border/40 shadow-lg"
+      >
         <DropdownMenuItem>
           <User className="mr-2 h-4 w-4" />
           <span>Profile</span>
@@ -461,7 +482,7 @@ const UserDropdown = () => {
             </>
           )}
         </DropdownMenuItem>
-        <Separator className="my-1" />
+        <Separator className="my-1 bg-border/40" />
         <DropdownMenuItem className="text-destructive focus:text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Déconnexion</span>
@@ -511,3 +532,5 @@ export function Sidebar() {
     </SidebarProvider>
   )
 }
+
+export default Sidebar;
